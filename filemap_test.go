@@ -28,6 +28,14 @@ var (
 		"4": {Id: "4", Blob: []byte{40, 41, 42, 43, 44, 45}},
 		"5": {Id: "5", Blob: []byte{50, 51, 52, 53, 54, 55}},
 	}
+	testDataPtr = map[string]*testDataStruct{
+		"0": {Id: "0", Blob: []byte{0, 1, 2, 3, 4, 5}},
+		"1": {Id: "1", Blob: []byte{10, 11, 12, 13, 14, 15}},
+		"2": {Id: "2", Blob: []byte{20, 21, 22, 23, 24, 25}},
+		"3": {Id: "3", Blob: []byte{30, 31, 32, 33, 34, 35}},
+		"4": {Id: "4", Blob: []byte{40, 41, 42, 43, 44, 45}},
+		"5": {Id: "5", Blob: []byte{50, 51, 52, 53, 54, 55}},
+	}
 )
 
 // Helper to cleanup test
@@ -98,12 +106,21 @@ func TestFileMap(t *testing.T) {
 	t.Parallel()
 	cleanupFile("./testfm")
 	defer cleanupFile("./testfm")
+	cleanupFile("./testfmptr")
+	defer cleanupFile("./testfmptr")
 	// Create FileMap
-	database, err := filemap.CreateFileMap("./testfm", testData)
+	database, err := filemap.NewFileMap("./testfm", testData)
 	if err != nil {
 		t.Fatalf("Failed to create FileMap: %v", err)
 	}
 	t.Log("Testing created FileMap...")
+	fmTestHelper(database, t)
+	// Create FileMap from ptr
+	database, err = filemap.NewFileMapPointers("./testfmptr", testDataPtr)
+	if err != nil {
+		t.Fatalf("Failed to create FileMap from pointer: %v", err)
+	}
+	t.Log("Testing created FileMap from pointer...")
 	fmTestHelper(database, t)
 	// Open FileMap
 	database, err = filemap.OpenFileMap[string, testDataStruct]("./testfm")
@@ -120,7 +137,7 @@ func TestParallelCalls(t *testing.T) {
 	cleanupFile("./testfmParallel")
 	defer cleanupFile("./testfmParallel")
 	// Create FileMap
-	database, err := filemap.CreateFileMap("./testfmParallel", testData)
+	database, err := filemap.NewFileMap("./testfmParallel", testData)
 	if err != nil {
 		t.Fatalf("Failed to create FileMap: %v", err)
 	}
@@ -190,7 +207,7 @@ func TestParallelCalls(t *testing.T) {
 		// Updates
 		go func() {
 			for i := 0; i < updates; i++ {
-				err := database.Update(testData)
+				err := database.Update(testData, nil)
 				if err != nil {
 					errChan <- err
 					return
@@ -229,7 +246,7 @@ func createFileMap(data map[int]testDataStruct, b *testing.B) {
 	fmName := "./testfm_bench." + strconv.FormatUint(binary.BigEndian.Uint64(rb), 10) + ""
 	cleanupFile(fmName)
 	b.StartTimer()
-	database, err := filemap.CreateFileMap(fmName, testData)
+	database, err := filemap.NewFileMap(fmName, testData)
 	b.StopTimer()
 	defer cleanupFile(fmName)
 	if err != nil {
@@ -245,7 +262,7 @@ func BenchmarkDatabase1M(b *testing.B) {
 	testData := createData(1000000, 1024)
 	cleanupFile("./benchfm")
 	defer cleanupFile("./benchfm")
-	database, err := filemap.CreateFileMap("./benchfm", testData)
+	database, err := filemap.NewFileMap("./benchfm", testData)
 	if err != nil {
 		b.Fatalf("Failed to create database: %v", err)
 	}

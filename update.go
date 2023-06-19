@@ -29,8 +29,9 @@ func (fm *FileMap[K, V]) tmpFileName() (string, error) {
 // Updates a FM with the data provided
 //
 // This attempts to acquire the locks for the least amount of time possible
-func (fm *FileMap[K, V]) Update(data map[K]V) error {
-	if data == nil {
+// This will prefer data over dataPtr
+func (fm *FileMap[K, V]) Update(data map[K]V, dataPtr map[K]*V) error {
+	if data == nil && dataPtr == nil {
 		return ErrDataIsNil
 	}
 	// Prepare header
@@ -47,7 +48,7 @@ func (fm *FileMap[K, V]) Update(data map[K]V) error {
 		}
 		tmpFile, err = os.OpenFile(tmpFileName, os.O_CREATE|os.O_TRUNC|os.O_WRONLY|os.O_EXCL, 0600) //#nosec
 		if err == nil {
-			break //
+			break
 		}
 		if err != os.ErrExist {
 			return err
@@ -62,19 +63,39 @@ func (fm *FileMap[K, V]) Update(data map[K]V) error {
 	fileLocation := n
 	// Write data and build index
 	index := make(map[K]int64, len(data))
-	for key, entry := range data {
-		index[key] = int64(fileLocation)
-		entryBytes, err := json.Marshal(entry)
-		if err != nil {
-			_ = tmpFile.Close()
-			return err
+	if data == nil {
+		index = make(map[K]int64, len(dataPtr))
+	}
+	if data != nil {
+		for key, entry := range data {
+			index[key] = int64(fileLocation)
+			entryBytes, err := json.Marshal(entry)
+			if err != nil {
+				_ = tmpFile.Close()
+				return err
+			}
+			n, err := tmpFile.Write(entryBytes)
+			if err != nil {
+				_ = tmpFile.Close()
+				return err
+			}
+			fileLocation += n
 		}
-		n, err := tmpFile.Write(entryBytes)
-		if err != nil {
-			_ = tmpFile.Close()
-			return err
+	} else {
+		for key, entry := range dataPtr {
+			index[key] = int64(fileLocation)
+			entryBytes, err := json.Marshal(*entry)
+			if err != nil {
+				_ = tmpFile.Close()
+				return err
+			}
+			n, err := tmpFile.Write(entryBytes)
+			if err != nil {
+				_ = tmpFile.Close()
+				return err
+			}
+			fileLocation += n
 		}
-		fileLocation += n
 	}
 	// Write index
 	indexBytes, err := json.Marshal(index)

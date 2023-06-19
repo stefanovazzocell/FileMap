@@ -52,7 +52,7 @@ func OpenFileMap[K comparable, V any](fileMapName string) (*FileMap[K, V], error
 }
 
 // Creates a new FM with a given set of data
-func CreateFileMap[K comparable, V any](fileMapName string, data map[K]V) (*FileMap[K, V], error) {
+func NewFileMap[K comparable, V any](fileMapName string, data map[K]V) (*FileMap[K, V], error) {
 	fm := FileMap[K, V]{
 		fileMapName: fileMapName,
 
@@ -62,7 +62,22 @@ func CreateFileMap[K comparable, V any](fileMapName string, data map[K]V) (*File
 		fileMu: &sync.Mutex{},
 		file:   nil,
 	}
-	err := fm.Update(data)
+	err := fm.Update(data, nil)
+	return &fm, err
+}
+
+// Creates a new FM with a given set of data (where the provided map points to the value)
+func NewFileMapPointers[K comparable, V any](fileMapName string, dataPtr map[K]*V) (*FileMap[K, V], error) {
+	fm := FileMap[K, V]{
+		fileMapName: fileMapName,
+
+		indexMu: &sync.RWMutex{},
+		index:   nil,
+
+		fileMu: &sync.Mutex{},
+		file:   nil,
+	}
+	err := fm.Update(nil, dataPtr)
 	return &fm, err
 }
 
